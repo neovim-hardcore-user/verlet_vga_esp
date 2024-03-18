@@ -19,8 +19,6 @@ static point points[MAX_POINTS];
 
 
 int32_t constexpr r = 2 << FIXED_POINT;
-
-
 int32_t constexpr r2 = r * 2;
 int32_t constexpr fr = r >> FIXED_POINT;
 int32_t constexpr fr2 = fr * 2;
@@ -45,7 +43,7 @@ static bool logger = 1;
 
 
 
-static constexpr float rotating_speed = 0.0004f;
+static constexpr float rotating_speed = 0.00131f;
 static constexpr float gravity = 12.0f;
 
 
@@ -76,12 +74,14 @@ void prerender_circle() {
 void draw_fast_circles() {
   for (uint16_t a = 0; a <= fr; ++a) {
     int16_t xr = circle_lines[a];
-    int16_t xr1 = xr + 1;
-    for (uint16_t i = 0; i < MAX_POINTS; ++i) {
-      auto p = &points[i];
-      vga.xLine((p->x >> FIXED_POINT) - xr, (p->x >> FIXED_POINT) + xr1, (p->y >> FIXED_POINT) + a, p->color);
-      if (a != 0) {
-        vga.xLine((p->x >> FIXED_POINT) - xr, (p->x >> FIXED_POINT) + xr1, (p->y >> FIXED_POINT) - a, p->color);
+
+    for (int16_t line = -xr; line <= xr; ++line) {
+      for (uint16_t i = 0; i < MAX_POINTS; ++i) {
+        auto p = &points[i];
+        vga.dot((p->x >> FIXED_POINT) + line, (p->y >> FIXED_POINT) + a, p->color);
+        if (a != 0) {
+          vga.dot((p->x >> FIXED_POINT) + line, (p->y >> FIXED_POINT) - a, p->color);
+        }
       }
     }
   }
@@ -96,7 +96,8 @@ void setup() {
 }
 
 void draw_function() {
-  vga.clear(0);
+  for (int y = 0; y < vga.yres; y++)
+    memset(vga.backBuffer[y], 0, vga.xres * sizeof(uint16_t));
 
   draw_fast_circles();
 
@@ -110,17 +111,13 @@ void draw_function() {
     vga.print("Fps: "); vga.print((int)(1000.0f / delta_time));
 
     vga.setFont(Font6x8);
-    
-    vga.setCursor(0, 20);
-    vga.print("frame_time:"); vga.print(delta_time); vga.print("ms");
-    vga.setCursor(0, 30);
-    vga.print("physics_time:"); vga.print(physics_time); vga.print("ms");
-    vga.setCursor(0, 40);
-    vga.print("draw_time:"); vga.print(draw_time); vga.print("ms");
-    vga.setCursor(0, 50);
-    vga.print("objects:"); vga.print(MAX_POINTS);
 
-    uint16_t line_x = vga.xres / 2 + cos((float)millis() * rotating_speed) * 35.0f;
+    vga.setCursor(0, 20);
+    vga.print("physics:"); vga.print(physics_time); vga.print("ms");
+    vga.setCursor(0, 30);
+    vga.print("draw:"); vga.print(draw_time); vga.print("ms");
+
+    /*uint16_t line_x = vga.xres / 2 + cos((float)millis() * rotating_speed) * 35.0f;
     uint16_t line_y = vga.yres / 2 + sin((float)millis() * rotating_speed) * 35.0f;
 
     vga.line(vga.xres / 2, vga.yres / 2, line_x, line_y, vga.RGB(255, 100, 100));
@@ -129,13 +126,35 @@ void draw_function() {
                              vga.RGB(255, 100, 100));
     vga.line(line_x, line_y, vga.xres / 2 + cos((float)millis() * rotating_speed + 0.3f) * 27.0f, 
                              vga.yres / 2 + sin((float)millis() * rotating_speed + 0.3f) * 27.0f, 
-                             vga.RGB(255, 100, 100));
+                             vga.RGB(255, 100, 100));*/
   
     frame_time = current_time;
   }
   
   vga.show();
 }
+
+
+/*unsigned int isqrt(unsigned int num) {
+    float x = (float)num;
+    float xhalf = x * 0.5f;
+    int32_t i = *(int32_t*)&x;
+    i = 0x5f3759df - (i >> 1);
+    x = *(float*)&i;
+    x = 1.0f / (x * (1.5f - (xhalf * x * x)));
+    return (unsigned int)x;
+}*/
+
+unsigned int isqrt(unsigned int num) {
+    float x = (float)num;
+    float xhalf = x * 0.5f;
+    int32_t i = *(int32_t*)&x;
+    i = 0x5f3759df - (i >> 1);
+    x = *(float*)&i;
+    x = 1.0f / (x * (1.5f - (xhalf * x * x)));
+    return (unsigned int)x;
+}
+
 
 
 void update_points() {
@@ -155,6 +174,7 @@ void update_points() {
 
     pa->x += vx;
     pa->y += vy;
+
 
     if (pa->x >= w - r) {
       pa->x = w - r;
@@ -177,26 +197,34 @@ void update_points() {
 
     if (grid_x < 0 || grid_x >= GRID_X || grid_y < 0 || grid_y >= GRID_Y) continue;
 
-        
-    for (int16_t x = grid_x - 1; x <= grid_x + 1; ++x) {
-      for (int16_t y = grid_y - 1; y <= grid_y + 1; ++y) {
-        if (x < 0 || x >= GRID_X || y < 0 || y >= GRID_Y) continue;
+
+    const int16_t grid_x_start = max(grid_x - 1, 0);
+    const int16_t grid_x_end = min(grid_x + 1, GRID_X - 1);
+    const int16_t grid_y_start = max(grid_y - 1, 0);
+    const int16_t grid_y_end = min(grid_y + 1, GRID_Y - 1);
+
+
+
+    for (int16_t x = grid_x_start; x <= grid_x_end; ++x) {
+      for (int16_t y = grid_y_start; y <= grid_y_end; ++y) {
         for (int u = 1; u <= grid_dict[x][y][0]; ++u) {
           auto pb = &points[grid_dict[x][y][u]];
 
           int32_t dx = pa->x - pb->x;
           if (abs(dx) >= r2) continue;
+
           int32_t dy = pa->y - pb->y;
           if (abs(dy) >= r2) continue;
-    
-          int32_t l = sqrt(dx * dx + dy * dy);
-    
-          if (l == 0 || l >= r2) continue;
-
+          
+          int32_t dot = dx * dx + dy * dy;
+          if (dot == 0 || dot >= r2 * r2) continue;
+          
+          int32_t l = isqrt(dot);
           int32_t ld = (l - r2);
-
-          dx = (dx * ld) / 2 / l;
-          dy = (dy * ld) / 2 / l;
+          int32_t factor = (ld << 13) / (2 * l);
+          
+          dx = (dx * factor) >> 13;
+          dy = (dy * factor) >> 13;
 
           pb->x += dx;
           pb->y += dy;
@@ -208,7 +236,7 @@ void update_points() {
     }
     
 
-    grid_dict[grid_x][grid_y][0] += 1;
+    ++grid_dict[grid_x][grid_y][0];
     grid_dict[grid_x][grid_y][grid_dict[grid_x][grid_y][0]] = a;
   }
 }
