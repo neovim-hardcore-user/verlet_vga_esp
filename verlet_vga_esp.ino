@@ -38,12 +38,12 @@ static uint32_t frame_time = 0;
 static uint32_t current_time = 0;
 static float delta_time = 0;
 
-static bool logger = 1;
+static constexpr bool logger = 1;
 
 
 
 
-static constexpr float rotating_speed = 0.00131f;
+static constexpr float rotating_speed = 0.0020f;
 static constexpr float gravity = 12.0f;
 
 
@@ -57,10 +57,11 @@ void initialize() {
     p->y = h - ((x / (GRID_X - 2) * fr * 2 + fr) << FIXED_POINT);
     p->px = p->x;
     p->py = p->y;
-    //p->color = vga.RGB(rand() % 255, rand() % 255, rand() % 255);
     p->color = vga.RGB(((float)(p->x >> FIXED_POINT) / (float)(w >> FIXED_POINT) * 255.0f), 
                        ((float)(w - (p->y >> FIXED_POINT)) / (float)(h >> FIXED_POINT) * 255.0f), 
                        255);
+    //p->color = vga.RGB(rand() % 255, rand() % 255, rand() % 255);
+    
   }
 }
 
@@ -101,6 +102,7 @@ void draw_function() {
 
   draw_fast_circles();
 
+
   if (logger) {
     current_time = millis();
   
@@ -111,22 +113,13 @@ void draw_function() {
     vga.print("Fps: "); vga.print((int)(1000.0f / delta_time));
 
     vga.setFont(Font6x8);
-
+    
     vga.setCursor(0, 20);
     vga.print("physics:"); vga.print(physics_time); vga.print("ms");
     vga.setCursor(0, 30);
     vga.print("draw:"); vga.print(draw_time); vga.print("ms");
 
-    /*uint16_t line_x = vga.xres / 2 + cos((float)millis() * rotating_speed) * 35.0f;
-    uint16_t line_y = vga.yres / 2 + sin((float)millis() * rotating_speed) * 35.0f;
 
-    vga.line(vga.xres / 2, vga.yres / 2, line_x, line_y, vga.RGB(255, 100, 100));
-    vga.line(line_x, line_y, vga.xres / 2 + cos((float)millis() * rotating_speed - 0.3f) * 27.0f, 
-                             vga.yres / 2 + sin((float)millis() * rotating_speed - 0.3f) * 27.0f, 
-                             vga.RGB(255, 100, 100));
-    vga.line(line_x, line_y, vga.xres / 2 + cos((float)millis() * rotating_speed + 0.3f) * 27.0f, 
-                             vga.yres / 2 + sin((float)millis() * rotating_speed + 0.3f) * 27.0f, 
-                             vga.RGB(255, 100, 100));*/
   
     frame_time = current_time;
   }
@@ -218,13 +211,12 @@ void update_points() {
           
           int32_t dot = dx * dx + dy * dy;
           if (dot == 0 || dot >= r2 * r2) continue;
-          
+        
           int32_t l = isqrt(dot);
-          int32_t ld = (l - r2);
-          int32_t factor = (ld << 13) / (2 * l);
+          int32_t factor = (((l - r2) << 15) / l) >> 1;
           
-          dx = (dx * factor) >> 13;
-          dy = (dy * factor) >> 13;
+          dx = (dx * factor) >> 15;
+          dy = (dy * factor) >> 15;
 
           pb->x += dx;
           pb->y += dy;
@@ -235,6 +227,7 @@ void update_points() {
       }
     }
     
+
 
     ++grid_dict[grid_x][grid_y][0];
     grid_dict[grid_x][grid_y][grid_dict[grid_x][grid_y][0]] = a;
