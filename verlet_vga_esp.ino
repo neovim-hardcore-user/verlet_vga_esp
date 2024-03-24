@@ -119,8 +119,6 @@ void draw_function(void *param) {
 
 
     if (logger) {
-      
-
       delta_time = (float)(delta_time * 100 + frame_time) / 101;
       vga.setFont(CodePage437_8x16);
 
@@ -266,9 +264,6 @@ void loop() {
   
   draw_finished = 0;
 
-  /*physics_time = millis();
-  update_points();
-  physics_time = millis() - physics_time;*/
 
   update_points();
 }
