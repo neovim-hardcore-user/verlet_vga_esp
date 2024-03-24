@@ -60,8 +60,8 @@ void initialize() {
 
     p->x = (x % (GRID_X - 2) * fr * 2 + fr) << FIXED_POINT;
     p->y = h - ((x / (GRID_X - 2) * fr * 2 + fr) << FIXED_POINT);
-    p->px = p->x + (rand()%2) - 1;
-    p->py = p->y + (rand()%2) - 1;
+    p->px = p->x + (rand() % 2) - 1;
+    p->py = p->y + (rand() % 2) - 1;
     p->color = vga.RGB(((float)p->x / (float)w * 255.0f),
                        ((float)(w - (p->y >> FIXED_POINT)) / (float)(h >> FIXED_POINT) * 255.0f),
                        255);
@@ -114,7 +114,7 @@ void draw_function(void *param) {
     while (draw_finished) delay(0);
     for (int y = 0; y < vga.yres; y++)
       memset(vga.backBuffer[y], 0, vga.xres * sizeof(uint16_t));
-    
+
     draw_fast_circles();
 
 
@@ -220,7 +220,7 @@ void update_points() {
           int32_t dot = dx * dx + dy * dy;
           if (dot == 0 || dot >= r2 * r2) continue;
 
-          int32_t l = isqrt(dot) - 20;
+          int32_t l = isqrt(dot) - 10 * fr;
           int32_t factor = (((l - r2) << 15) / l) >> 1;
 
           dx = (dx * factor) >> 15;
@@ -243,11 +243,11 @@ void update_points() {
 }
 
 void setup() {
-  
+
   vga.setFrameBufferCount(2);
   vga.init(vga.MODE200x150, vga.VGABlackEdition);
   Serial.begin(115200);
-  
+
   prerender_circle();
   initialize();
 
@@ -261,7 +261,7 @@ void loop() {
   frame_time = time - current_time;
   current_time = time;
   while (!draw_finished) delay(0);
-  
+
   draw_finished = 0;
 
 
